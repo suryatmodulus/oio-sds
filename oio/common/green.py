@@ -33,9 +33,11 @@ from eventlet.green.httplib import (HTTPConnection, HTTPSConnection, # noqa
 from eventlet.queue import Empty, LifoQueue, LightQueue # noqa
 from eventlet.semaphore import Semaphore # noqa
 
-eventlet.monkey_patch(os=False)
+
+eventlet.monkey_patch(os=True)
 
 logging.thread = eventlet.green.thread
+
 logging.threading = threading
 logging._lock = logging.threading.RLock()
 
