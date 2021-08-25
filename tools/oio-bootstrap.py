@@ -1332,6 +1332,8 @@ fall: 1
 include_dir: ${CFGDIR}/watch
 """
 
+FDB = str(os.environ['HOME']) + '/.local/etc/foundationdb'
+
 template_account = """
 [account-server]
 bind_addr = ${IP}
@@ -1343,6 +1345,12 @@ log_facility = LOG_LOCAL0
 log_level = INFO
 log_address = /dev/log
 syslog_prefix = OIO,${NS},${SRVTYPE},${SRVNUM}
+
+backend_type = fdb
+# default fdb file /etc/foundationdb/fdb.cluster will be used if fdb_file
+# is not defined
+
+fdb_file = ${FDB}/fdb.cluster
 
 # Let this option empty to connect directly to redis_host
 #sentinel_hosts = 127.0.0.1:26379,127.0.0.1:26380,127.0.0.1:26381
@@ -1657,7 +1665,8 @@ def generate(options):
                WEBHOOK=WEBHOOK,
                WEBHOOK_ENDPOINT=WEBHOOK_ENDPOINT,
                TLS_CERT_FILE=TLS_CERT_FILE,
-               TLS_KEY_FILE=TLS_KEY_FILE)
+               TLS_KEY_FILE=TLS_KEY_FILE,
+               FDB=FDB)
 
     def merge_env(add):
         env = dict(ENV)
