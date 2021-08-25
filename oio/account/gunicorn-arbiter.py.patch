@@ -1,0 +1,15 @@
+--- gunicorn/arbiter.py     2021-09-15 13:54:34.195658785 +0200
++++ gunicorn/arbiter.py.new 2021-09-15 14:04:32.152011344 +0200
+@@ -580,6 +580,12 @@
+         for sibling in self.WORKERS.values():
+             sibling.tmp.close()
+
++        # Load and init fdb database
++        if hasattr(self.app, 'application'):
++            if hasattr(self.app.application, 'backend'):
++               if hasattr(self.app.application.backend, 'db'):
++                    self.app.application.backend.init_db()
++
+         # Process Child
+         worker.pid = os.getpid()
+         try:
