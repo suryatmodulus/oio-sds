@@ -1910,7 +1910,11 @@ _m2_container_create_many(struct req_args_s *args, struct json_object *jbody)
 typedef GByteArray* (*list_packer_f) (struct list_params_s *);
 
 /* When listing with a delimiter, and the next_marker is further than the last
- * object found, we can build a marker with the last prefix found. */
+ * object found, we can build a marker with the last prefix found.
+ *
+ * req_marker: marker provided by the caller or computed at the prev iter
+ * obj_marker: latest object returned by the prev iter
+ * prefix_marker: latest prefix returned by the prev iter */
 static gchar *
 _build_next_marker(const char *req_marker, const gchar *obj_marker,
 		const gchar *prefix_marker)
@@ -1920,9 +1924,15 @@ _build_next_marker(const char *req_marker, const gchar *obj_marker,
 	gchar *next_marker = NULL;
 	if (prefix_marker) {
 		if (obj_marker && g_strcmp0(obj_marker, prefix_marker) >= 0) {
+			/* The last returned item is an object name. There may be other
+			 * objects after this one and before the next marker. Do not
+			 * hack anything, start at this point in the next iter. */
 			next_marker = g_strdup(obj_marker);
 		} else {
-			/* HACK: "\xf4\x8f\xbf\xbd" is last valid Unicode character.
+			/* The last returned item is an object prefix, we do not need
+			 * to list other objects with this prefix.
+			 *
+			 * HACK: "\xf4\x8f\xbf\xbd" is last valid Unicode character.
 			 * There are very few chances that an object has it in its name,
 			 * and even if it has, it won't be listed
 			 * (because it would be behind the delimiter).
@@ -1978,8 +1988,9 @@ static GError * _list_loop (struct req_args_s *args,
 		if (in0->maxkeys > 0)
 			in.maxkeys = in0->maxkeys - (count + g_tree_nnodes(tree_prefixes));
 		in.marker_start = _build_next_marker(
-				in0->marker_start,
-				out0->next_marker?: ctx.latest_name, ctx.latest_prefix);
+				out0->next_marker?: in0->marker_start,
+				ctx.latest_name,
+				ctx.latest_prefix);
 
 		/* update path to use sharding resolver */
 		gchar *fake_path = NULL;
