@@ -889,7 +889,7 @@ class TestObjectStorageApi(ObjectStorageApiTestBase):
             self.api.container_create(account, container_name)
         for _ in container_names:
             self.wait_for_event(
-                'oio-preserved', types=[EventTypes.CONTAINER_NEW])
+                'oio-preserved', timeout=5, types=[EventTypes.CONTAINER_NEW])
 
         buckets = self.api.container_list(account, s3_buckets_only=True)
         self.assertListEqual(
@@ -919,7 +919,7 @@ class TestObjectStorageApi(ObjectStorageApiTestBase):
             self.api.container_create(account, container_name)
         for _ in container_names:
             self.wait_for_event(
-                'oio-preserved', types=[EventTypes.CONTAINER_NEW])
+                'oio-preserved', timeout=6, types=[EventTypes.CONTAINER_NEW])
 
         buckets = self.api.container_list(account, s3_buckets_only=True,
                                           prefix=prefix)
@@ -955,7 +955,7 @@ class TestObjectStorageApi(ObjectStorageApiTestBase):
             self.api.container_create(account, container_name)
         for _ in container_names:
             self.wait_for_event(
-                'oio-preserved', types=[EventTypes.CONTAINER_NEW])
+                'oio-preserved', timeout=3, types=[EventTypes.CONTAINER_NEW])
 
         buckets = self.api.container_list(account, s3_buckets_only=True)
         self.assertListEqual(
