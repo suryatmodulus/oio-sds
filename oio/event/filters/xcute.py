@@ -74,6 +74,6 @@ def filter_factory(global_conf, **local_conf):
     conf = global_conf.copy()
     conf.update(local_conf)
 
-    def account_filter(app):
+    def xcute_filter(app):
         return XcuteFilter(app, conf)
-    return account_filter
+    return xcute_filter
