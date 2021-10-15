@@ -217,6 +217,36 @@ class AccountClient(HttpApi):
         """
         self.account_request(bucket, 'POST', 'refresh-bucket', **kwargs)
 
+    def bucket_reserve(self, bucket, **kwargs):
+        """
+        Reserve the bucket name during bucket creation.
+        """
+        data = json.dumps({'account': kwargs.get('owner')})
+        _resp, body = self.account_request(bucket, 'PUT', 'reserve-bucket',
+                                           data=data, **kwargs)
+        return body
+
+    def bucket_release(self, bucket, **kwargs):
+        """
+        Refresh the counters of a bucket. Recompute them from the counters
+        of all shards (containers).
+        """
+        self.account_request(bucket, 'POST', 'release-bucket', **kwargs)
+
+    def set_bucket_owner(self, bucket, **kwargs):
+        """
+        Get the bucket owner during reservation.
+        """
+        data = json.dumps({'account': kwargs.get('owner')})
+        _resp, body = self.account_request(bucket, 'PUT', 'set-owner-bucket',
+                                           data=data, **kwargs)
+        return body
+
+    def get_bucket_owner(self, bucket, **kwargs):
+        _resp, body = self.account_request(bucket, 'GET', 'get-owner-bucket',
+                                           **kwargs)
+        return body
+
     def container_list(self, account, limit=None, marker=None,
                        end_marker=None, prefix=None, delimiter=None,
                        s3_buckets_only=False, **kwargs):
