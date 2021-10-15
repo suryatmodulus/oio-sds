@@ -44,6 +44,8 @@ CTS_TO_DELETE_LIST_PREFIX = 'ct-to-delete:'
 
 METADATA_PREFIX = 'metadata:'
 
+BUCKET_RESERVE_PREFIX = 's3bucket:'
+
 
 def catch_service_errors(func):
     """
@@ -123,6 +125,10 @@ class AccountBackendFdb():
 
         self.ct_to_delete_prefix = conf.get('containers_to_delete_prefix',
                                             CTS_TO_DELETE_LIST_PREFIX)
+
+        self._reserve_bucket_prefix = conf.get('reserve_bucket_prefix',
+                                               BUCKET_RESERVE_PREFIX)
+
         self.accts_space = fdb.Subspace((self._accounts_prefix,))
         self.acct_space = fdb.Subspace((self._account_prefix,))
 
@@ -525,6 +531,52 @@ class AccountBackendFdb():
             raise NotFound(account_id)
 
         self._flush_account(self.db, account_id)
+
+    @catch_service_errors
+    def reserve_bucket(self, account_id, bucket_name, **kwargs):
+        if account_id is None:
+            return False
+        reserved_space = fdb.Subspace((self._reserve_bucket_prefix,
+                                      bucket_name))
+        reserved = self._reserve_bucket(self.db, reserved_space, account_id)
+        return {'reserved': reserved}
+
+    @fdb.transactional
+    def _reserve_bucket(self, tr, space_, account_id):
+        if tr[space_.pack(('account',))].present():
+            return 0
+        now = Timestamp().normal
+        tr[space_.pack(('account',))] = bytes(str(now), 'utf-8')
+        return 1
+
+    @catch_service_errors
+    def release_bucket(self, bucket_name, **kwargs):
+        reserved_space = fdb.Subspace((self._reserve_bucket_prefix,
+                                      bucket_name))
+        self._release_bucket(self.db, reserved_space)
+        return True
+
+    @fdb.transactional
+    def _release_bucket(self, tr, space):
+        tr.clear_range_startswith(space)
+
+    @catch_service_errors
+    def set_bucket_owner(self, account_id, bucket_name, **kwargs):
+        reserved_space = fdb.Subspace((self._reserve_bucket_prefix,
+                                       bucket_name))
+        self.db[reserved_space.pack(('account',))] = bytes(account_id, 'utf-8')
+
+    @catch_service_errors
+    def get_bucket_owner(self, bucket_name, **kwargs):
+        reserved_space = fdb.Subspace((self._reserve_bucket_prefix,))
+        account = self._val_element(self.db, reserved_space, bucket_name,
+                                    'account')
+        if account is None:
+            return {'account': None}
+        else:
+            account_ = account.decode('utf-8')
+            # TODO check if account is timestamp, (shouldn't happen)
+            return {'account': account_}
 
     @fdb.transactional
     def _flush_account(self, tr, account_id):
