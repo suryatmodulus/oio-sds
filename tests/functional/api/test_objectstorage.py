@@ -2228,3 +2228,6 @@ class TestObjectStorageApiUsingCache(ObjectStorageApiTestBase):
             data += chunk
         self.assertEqual(b'overwritten', data)
         self.assertEqual(len('overwritten'), int(meta['size']))
+
+    def test_object_fetch_dirty_cache(self):
+        pass
