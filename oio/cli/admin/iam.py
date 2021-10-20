@@ -17,6 +17,8 @@ import json
 
 from cliff import lister, show
 from oio.account.iam import RedisIamDb
+from oio.account.iam_fdb import FdbIamDb
+
 from oio.common.utils import parse_conn_str
 
 
@@ -52,9 +54,18 @@ class IamCommandMixinBase(object):
         scheme, netloc, kwargs = parse_conn_str(parsed_args.connection)
         if scheme == 'redis+sentinel':
             kwargs['sentinel_hosts'] = netloc
+            iam = RedisIamDb(**kwargs)
+        elif scheme == 'fdb':
+            parsed_args.fdb_file = self.app.client_manager.sds_conf.get(
+                'fdb_file', None)
+            conf = {}
+            conf['fdb_file'] = parsed_args.fdb_file
+            iam = FdbIamDb(conf=conf, **kwargs)
+            iam.init_db()
         else:
             kwargs['host'] = netloc
-        return RedisIamDb(**kwargs)
+            iam = RedisIamDb(**kwargs)
+        return iam
 
     @property
     def logger(self):
