@@ -142,6 +142,8 @@ class AccountBackendFdb():
 
         self.metadata_subspace = fdb.Subspace((METADATA_PREFIX,))
 
+        self.default_location = self.conf.get('default_location', '')
+
     @catch_service_errors
     def create_account(self, account_id, **kwargs):
         """
@@ -372,6 +374,8 @@ class AccountBackendFdb():
         bucket_name = bucket_name or ''
         now = Timestamp().normal
 
+        # bucket location
+        bucket_location = kwargs.get('bucket_location', self.default_location)
         # read mtime & dtime
         ct_space = fdb.Subspace((self._container_list_prefix, account_id))
         cts_space = fdb.Subspace((self._containers_list_prefix, account_id))
@@ -383,7 +387,7 @@ class AccountBackendFdb():
                                         new_mtime, new_dtime, now,
                                         autocreate_account,
                                         autocreate_container, object_count,
-                                        bytes_used)
+                                        bytes_used, bucket_location)
 
         if text_type(status).endswith("no_account"):
             raise NotFound("Account %s not found" % account_id)
@@ -645,7 +649,7 @@ class AccountBackendFdb():
     def _update_container(self, tr, cts_space, ct_space, account_id, cname,
                           bucket_name, new_mtime, new_dtime, now,
                           autocreate_account, autocreate_container,
-                          new_total_objects, new_total_bytes):
+                          new_total_objects, new_total_bytes, bucket_location):
 
         to_delete_space = fdb.Subspace((self.ct_to_delete_prefix, account_id))
 
@@ -766,7 +770,7 @@ class AccountBackendFdb():
                         tr.clear_range_startswith(self.bs_space.pack(
                             (account_id, bucket_name)))
                         tr.clear_range_startswith(
-                            self.bs_space.pack((bucket_name,)))
+                            self.bs_space.pack((bucket_location, bucket_name)))
                         # Also delete the bucket
                         tr.clear_range_startswith(
                             self.b_space.pack((bucket_name,)))
@@ -801,6 +805,9 @@ class AccountBackendFdb():
                     tr[self.b_space.pack((bucket_name, 'bytes'))] = \
                                          struct.pack('<i', 0)
 
+                tr[self.b_space.pack((bucket_name, 'region'))] = \
+                    bytes(str(bucket_location), 'utf-8')
+
                 # Update the modification time.
                 if mtime != b'0':
                     tr[self.b_space.pack((bucket_name, 'mtime'))] = mtime
@@ -820,7 +827,8 @@ class AccountBackendFdb():
                 # Update the buckets list if it's the root container
                 if bucket_name == cname:
                     tr[self.bs_space.pack((account_id, bucket_name))] = b'0'
-                    tr[self.bs_space.pack((bucket_name,))] = b'0'
+                    tr[self.bs_space.pack((bucket_location, bucket_name))] = \
+                        b'0'
         else:
             return 'no_update_needed'
         return 'updated'
