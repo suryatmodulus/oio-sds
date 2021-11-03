@@ -98,6 +98,7 @@ class AccountBackendFdb():
 
         try:
             if self.db is None:
+                print('debug db file:', self.fdb_file)
                 self.db = fdb.open(self.fdb_file)
         except Exception as exc:
             self.logger.error("can't open fdb file: %s exception %s",

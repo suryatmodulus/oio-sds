@@ -146,17 +146,17 @@ restart_delay = 60
 cluster_file = ${CLUSTERFILE}
 
 [fdbserver]
-command = fdbserver
+command = ${FDBSERVER_EXE}
 public_address = auto:$ID
 listen_address = public
 datadir = ${DATADIR}/foundationdb/data/$ID
-logdir = ${LOGDIR}/fdb
+logdir = ${LOGDIR}
 
 [fdbserver.4500]
 
 [backup_agent]
-command = backup_agent
-logdir = ${LOGDIR}/fdb
+command = ${BACKUP_AGENT_EXE}
+logdir = ${LOGDIR}
 
 [backup_agent.1]
 """
@@ -169,7 +169,7 @@ template_systemd_service_foundationdb = """
 [Unit]
 Description=[OpenIO] Service account
 PartOf=${PARENT}
-OioGroup=${NS},localhost,${SRVTYPE},${IP}:${PORT}
+OioGroup=${NS},localhost,${SRVTYPE}
 
 [Service]
 ${SERVICEUSER}
@@ -177,8 +177,9 @@ ${SERVICEGROUP}
 Type=simple
 ExecStart=${EXE} --conffile ${CFGDIR}/${NS}-${SRVTYPE}-${SRVNUM}.conf --lockfile ${RUNDIR}/${NS}-${SRVTYPE}-${SRVNUM}.pid
 ExecStartPost=/usr/bin/timeout 30 sh -c 'while ! ss -H -t -l -n sport = :${PORT} | grep -q "^LISTEN.*:${PORT}"; do sleep 1; done'
+ExecStartPost=${FDBCLI_EXE} -C ${CLUSTERFILE} --exec "configure new single memory" --timeout 20
 Restart=on-failure
-Environment=PATH=${PATH}
+##Environment=PATH=${PATH}
 Environment=LD_LIBRARY_PATH=${LIBDIR}
 Environment=HOME=${HOME}
 
@@ -1105,7 +1106,7 @@ sqliterepo.repo.hard_max=1024
 admin=${IP}:${PORT_ADMIN}
 #iam.connection=redis://${IP}:${REDIS_PORT}/?allow_empty_policy_name=False
 iam.connection=fdb://${IP}:0000/?allow_empty_policy_name=False
-fdb_file = ${FDB}/fdb.cluster
+fdb_file = ${CLUSTERFILE}
 """
 
 template_systemd_service_event_agent = """
@@ -1317,7 +1318,7 @@ fall: 1
 include_dir: ${CFGDIR}/watch
 """
 
-FDB = str(os.environ['HOME']) + '/.local/etc/foundationdb'
+FDB_PATH_LOCAL = str(os.environ['HOME']) + '/.local/etc/foundationdb'
 
 template_account = """
 [account-server]
@@ -1335,13 +1336,12 @@ backend_type = fdb
 # default fdb file /etc/foundationdb/fdb.cluster will be used if fdb_file
 # is not defined
 
-fdb_file = ${FDB}/fdb.cluster
+fdb_file = ${CLUSTERFILE}
 
 # Let this option empty to connect directly to redis_host
 #sentinel_hosts = 127.0.0.1:26379,127.0.0.1:26380,127.0.0.1:26381
 sentinel_master_name = oio
 
-redis_host = ${IP}
 """
 
 template_xcute = """
@@ -1429,7 +1429,7 @@ WATCHDIR = SDSDIR + '/conf/watch'
 TMPDIR = '/tmp'
 CODEDIR = '@CMAKE_INSTALL_PREFIX@'
 SRCDIR = '@CMAKE_CURRENT_SOURCE_DIR@'
-LIBDIR = CODEDIR + '/@LD_LIBDIR@'
+LIBDIR = CODEDIR + '/@LD_LIBDIR@:' + str(os.environ['LD_LIBRARY_PATH'])
 BINDIR = CODEDIR + '/bin'
 PATH = HOME + "/.local/bin:@CMAKE_INSTALL_PREFIX@/bin:" + os.environ['PATH']
 PYTHON_VERSION = "python" + ".".join(str(x) for x in sys.version_info[:2])
@@ -1651,7 +1651,7 @@ def generate(options):
                WEBHOOK_ENDPOINT=WEBHOOK_ENDPOINT,
                TLS_CERT_FILE=TLS_CERT_FILE,
                TLS_KEY_FILE=TLS_KEY_FILE,
-               FDB=FDB)
+               FDB=FDB_PATH_LOCAL)
 
     def merge_env(add):
         env = dict(ENV)
@@ -1757,8 +1757,9 @@ def generate(options):
         if add_service_to_conf:
             env.update({'SYSTEMD_UNIT': service_name})
             add_service(env)
-        if 'EXE' in env:
-            env['EXE'] = shutil.which(env['EXE'])
+        for v in env:
+            if v == 'EXE' or v.endswith('_EXE'):
+                env[v] = shutil.which(env[v])
         if target:
             target.deps.append(service_name)
         service_path = '{}/{}'.format(env['SYSTEMDDIR'], service_name)
@@ -2056,10 +2057,22 @@ def generate(options):
 
     # foundationdb
     srvtype = 'foundationdb'
+    fdbmonitor_path = 'fdbmonitor'
+    fdbserver_path = 'fdbserver'
+    backup_agent_path = 'backup_agent'
+    fdbcli_path = 'fdbcli'
+    if is_systemd_system():
+        fdbmonitor_path = '/usr/lib/foundationdb/fdbmonitor'
+        fdbserver_path = '/usr/sbin/fdbserver'
+        backup_agent_path = '/usr/lib/foundationdb/backup_agent/backup_agent'
+        fdbcli_path = '/usr/bin/fdbcli'
     env = subenv({
         'SRVTYPE': srvtype,
         'SRVNUM': 1,
-        'EXE': 'fdbmonitor',
+        'EXE': fdbmonitor_path,
+        'FDBSERVER_EXE': fdbserver_path,
+        'BACKUP_AGENT_EXE': backup_agent_path,
+        'FDBCLI_EXE': fdbcli_path,
         'PORT': 4500,
         'DESCRIPTION': ''.join(
             [choice(ascii_letters + digits) for _ in range(8)]),
@@ -2110,6 +2123,9 @@ def generate(options):
     env = subenv({
         'SRVTYPE': 'account', 'SRVNUM': 1,
         'PORT': next(ports), 'EXE': 'oio-account-server'})
+    if options.get(ALLOW_FDB):
+        cluster_file = cluster(env)
+        env.update({'CLUSTERFILE': cluster_file})
     register_service(env, template_systemd_service_account, root_target)
     with open(config(env), 'w+') as f:
         tpl = Template(template_account)
@@ -2205,6 +2221,8 @@ def generate(options):
 
     env = subenv({  'SRVTYPE': 'conscience-agent',
                     'SRVNUM': 1, 'EXE': 'oio-conscience-agent'})
+    cluster_file = cluster(env)
+    env.update({'CLUSTERFILE': cluster_file})
     register_service(env, template_systemd_service_ns, root_target, False)
 
     # system config
