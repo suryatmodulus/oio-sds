@@ -23,7 +23,7 @@ jobs:
           chmod a+rX $(dirname $HOME)
           chmod -R a+rX $HOME
           . $HOME/oiovenv/bin/activate
-          pip install --upgrade pip setuptools virtualenv tox -r all-requirements.txt -r test-requirements.txt
+          pip install --upgrade pip setuptools virtualenv tox -r test-requirements.txt
 
       - name: Run functional tests
         script:

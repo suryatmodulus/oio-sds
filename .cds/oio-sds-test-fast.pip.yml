@@ -24,7 +24,7 @@ jobs:
           mkdir /tmp/oio
           virtualenv -p /usr/bin/python3 $HOME/oioenv
           . $HOME/oioenv/bin/activate
-          pip install --upgrade pip setuptools virtualenv tox -r all-requirements.txt -r test-requirements.txt
+          pip install --upgrade pip setuptools virtualenv tox -r test-requirements.txt
 
       - name: Run fast tests
         script:
