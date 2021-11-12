@@ -162,6 +162,13 @@ class AccountClient(HttpApi):
         data = json.dumps({"metadata": metadata, "to_delete": to_delete})
         self.account_request(account, 'PUT', 'update', data=data, **kwargs)
 
+    def account_metrics(self, **kwargs):
+        """
+        Metrics of an account.
+        """
+        _resp, body = self.account_request(None, 'GET', 'metrics', **kwargs)
+        return body
+
     def bucket_list(self, account, limit=None, marker=None,
                     prefix=None, **kwargs):
         """
