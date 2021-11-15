@@ -1884,8 +1884,10 @@ def generate(options):
         env = subenv({'SRVTYPE': t, 'SRVNUM': n, 'PORT': next(ports),
                       'EXE': 'oio-' + t + '-server',
                       'EXTRA': ext_opt})
+        if t == 'meta0':
+            env.update({'AFTER': 'After=oio-conscience-1.service'})
         if t == 'meta1':
-            env.update({'AFTER': 'oio-meta0.target'})
+            env.update({'AFTER': 'After=oio-meta0.target'})
         if service_id:
             env['WANT_SERVICE_ID'] = ''
             env['SERVICE_ID'] = "{NS}-{SRVTYPE}-{SRVNUM}".format(**env)
