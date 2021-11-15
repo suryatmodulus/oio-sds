@@ -167,7 +167,7 @@ ${DESCRIPTION}:${RANDOMSTR}@${IP}:${PORT}
 
 template_systemd_service_foundationdb = """
 [Unit]
-Description=[OpenIO] Service account
+Description=[OpenIO] Service foundationdb
 PartOf=${PARENT}
 OioGroup=${NS},localhost,${SRVTYPE}
 
@@ -177,7 +177,7 @@ ${SERVICEGROUP}
 Type=simple
 ExecStart=${EXE} --conffile ${CFGDIR}/${NS}-${SRVTYPE}-${SRVNUM}.conf --lockfile ${RUNDIR}/${NS}-${SRVTYPE}-${SRVNUM}.pid
 ExecStartPost=/usr/bin/timeout 30 sh -c 'while ! ss -H -t -l -n sport = :${PORT} | grep -q "^LISTEN.*:${PORT}"; do sleep 1; done'
-ExecStartPost=${FDBCLI_EXE} -C ${CLUSTERFILE} --exec "configure new single memory" --timeout 20
+ExecStartPost=-${FDBCLI_EXE} -C ${CLUSTERFILE} --exec "configure new single memory" --timeout 20
 Restart=on-failure
 ##Environment=PATH=${PATH}
 Environment=LD_LIBRARY_PATH=${LIBDIR}
@@ -199,6 +199,7 @@ ${SERVICEGROUP}
 Type=simple
 ExecStart=${EXE} ${CFGDIR}/${NS}-${SRVTYPE}-${SRVNUM}.conf
 ExecStartPost=/usr/bin/timeout 30 sh -c 'while ! ss -H -t -l -n sport = :${PORT} | grep -q "^LISTEN.*:${PORT}"; do sleep 1; done'
+ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 Environment=LD_LIBRARY_PATH=${LIBDIR}
 Environment=HOME=${HOME}
@@ -921,6 +922,7 @@ template_systemd_service_meta = """
 Description=[OpenIO] Service ${SRVTYPE} ${SRVNUM}
 PartOf=${PARENT}
 OioGroup=${NS},localhost,${SRVTYPE},${IP}:${PORT}
+${AFTER}
 
 [Service]
 ${SERVICEUSER}
@@ -1882,6 +1884,8 @@ def generate(options):
         env = subenv({'SRVTYPE': t, 'SRVNUM': n, 'PORT': next(ports),
                       'EXE': 'oio-' + t + '-server',
                       'EXTRA': ext_opt})
+        if t == 'meta1':
+            env.update({'AFTER': 'oio-meta0.target'})
         if service_id:
             env['WANT_SERVICE_ID'] = ''
             env['SERVICE_ID'] = "{NS}-{SRVTYPE}-{SRVNUM}".format(**env)
