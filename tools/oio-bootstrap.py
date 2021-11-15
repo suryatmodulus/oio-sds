@@ -1883,7 +1883,9 @@ def generate(options):
     def generate_meta(t, n, tpl, parent_target, ext_opt="", service_id=False):
         env = subenv({'SRVTYPE': t, 'SRVNUM': n, 'PORT': next(ports),
                       'EXE': 'oio-' + t + '-server',
-                      'EXTRA': ext_opt})
+                      'EXTRA': ext_opt,
+                      'AFTER': ''})
+
         if t == 'meta0':
             env.update({'AFTER': 'After=oio-conscience-1.service'})
         if t == 'meta1':
