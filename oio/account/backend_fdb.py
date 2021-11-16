@@ -380,6 +380,9 @@ class AccountBackendFdb():
 
         # bucket location
         bucket_location = kwargs.get('bucket_location', self.default_location)
+        # dict object details per storage class
+        object_details = kwargs.get('objects-details', {})
+
         # read mtime & dtime
         ct_space = fdb.Subspace((self._container_list_prefix, account_id))
         cts_space = fdb.Subspace((self._containers_list_prefix, account_id))
@@ -391,7 +394,8 @@ class AccountBackendFdb():
                                         new_mtime, new_dtime, now,
                                         autocreate_account,
                                         autocreate_container, object_count,
-                                        bytes_used, bucket_location)
+                                        bytes_used, bucket_location,
+                                        object_details)
 
         if text_type(status).endswith("no_account"):
             raise NotFound("Account %s not found" % account_id)
@@ -587,7 +591,7 @@ class AccountBackendFdb():
     @catch_service_errors
     def info_metrics(self, account_id, **kwargs):
         metrics = dict()
-        self.logger.info('info_metrics:', account_id)
+        self.logger.info('info_metrics: %s', account_id)
         # generic metrics
         if not account_id:
             # number of accounts
@@ -614,11 +618,11 @@ class AccountBackendFdb():
 
     @fdb.transactional
     def _read_account_metrics(self, tr):
-        nb_accts = tr[self.metrics_space.pack(('nb-accounts',))]
-        if nb_accts is None:
-            nb_accts = 0
-        else:
+        if tr[self.metrics_space.pack(('nb-accounts',))].present():
+            nb_accts = tr[self.metrics_space.pack(('nb-accounts',))]
             nb_accts = int.from_bytes(nb_accts, byteorder='little')
+        else:
+            nb_accts = 0
         return nb_accts
 
     @fdb.transactional
@@ -656,8 +660,11 @@ class AccountBackendFdb():
         iterator = tr.get_range(ct_metrics_range.start, ct_metrics_range.stop,
                                 reverse=False)
         for key, value in iterator:
-            _, _, region = unpack(key)
-            metrics_objects[region] = int.from_bytes(value, byteorder='little')
+            _, _, region, storage_class = unpack(key)
+            metrics_objects[region] = {}
+            metrics_objects[region][storage_class] = int.from_bytes(
+                                                        value,
+                                                        byteorder='little')
         return metrics_objects
 
     @fdb.transactional
@@ -741,7 +748,8 @@ class AccountBackendFdb():
     def _update_container(self, tr, cts_space, ct_space, account_id, cname,
                           bucket_name, new_mtime, new_dtime, now,
                           autocreate_account, autocreate_container,
-                          new_total_objects, new_total_bytes, bucket_location):
+                          new_total_objects, new_total_bytes, bucket_location,
+                          object_details):
 
         to_delete_space = fdb.Subspace((self.ct_to_delete_prefix, account_id))
 
@@ -784,6 +792,8 @@ class AccountBackendFdb():
         if not autocreate_container and dtime >= mtime:
             return 'no_container'
 
+        region = self._get_region(tr, bucket_location, bucket_name, cname)
+
         old_mtime = mtime
         inc_objects = 0
         inc_bytes = 0
@@ -812,7 +822,7 @@ class AccountBackendFdb():
 
                 # metrics
                 self._decrement(tr, self.metrics_space.pack(
-                            ('nb-containers', bucket_location)))
+                            ('nb-containers', region)))
                 deleted = True
 
             elif mtime > old_mtime:
@@ -829,7 +839,7 @@ class AccountBackendFdb():
 
                 # metrics
                 self._increment(tr, self.metrics_space.pack(
-                                ('nb-containers', bucket_location)))
+                                ('nb-containers', region)))
             else:
                 return 'no_update_needed'
 
@@ -842,8 +852,14 @@ class AccountBackendFdb():
                 tr.add(self.acct_space.pack((account_id, 'bytes')),
                        struct.pack('<i', inc_bytes))
 
-            self._increment(tr, self.metrics_space.pack(
-                            ('nb-objects', bucket_location)), inc_objects)
+            deltas = self._update_ct_stats_policy(tr, cname, region,
+                                                  object_details)
+
+            # don't increment just write the values
+            for policy, value in deltas:
+                self._increment(tr, self.metrics_space.pack(
+                                ('nb-objects', region, policy)),
+                                value)
 
             # define bname here
             current_bucket_name = self._val_element(self.db, ct_space, cname,
@@ -872,14 +888,14 @@ class AccountBackendFdb():
                         tr.clear_range_startswith(self.bs_space.pack(
                             (account_id, bucket_name)))
                         tr.clear_range_startswith(
-                            self.bs_space.pack((bucket_location, bucket_name)))
+                            self.bs_space.pack((region, bucket_name)))
                         # Also delete the bucket
                         tr.clear_range_startswith(
                             self.b_space.pack((bucket_name,)))
 
                         # decrements metrics
                         self._decrement(tr, self.metrics_space.pack(
-                                    ('nb-buckets', bucket_location)))
+                                    ('nb-buckets', region)))
                         return
 
                     # We used to return here. But since we delete shard before
@@ -912,7 +928,7 @@ class AccountBackendFdb():
                                          struct.pack('<i', 0)
 
                 tr[self.b_space.pack((bucket_name, 'region'))] = \
-                    bytes(str(bucket_location), 'utf-8')
+                    bytes(str(region), 'utf-8')
 
                 # Update the modification time.
                 if mtime != b'0':
@@ -933,14 +949,49 @@ class AccountBackendFdb():
                 # Update the buckets list if it's the root container
                 if bucket_name == cname:
                     tr[self.bs_space.pack((account_id, bucket_name))] = b'0'
-                    tr[self.bs_space.pack((bucket_location, bucket_name))] = \
+                    tr[self.bs_space.pack((region, bucket_name))] = \
                         b'0'
                     # increments metrics
                     self._increment(tr, self.metrics_space.pack(
-                                    ('nb-buckets', bucket_location)))
+                                    ('nb-buckets', region)))
         else:
             return 'no_update_needed'
         return 'updated'
+
+    @fdb.transactional
+    def _get_region(self, tr, bucket_location, bucket_name, ct_name):
+        if bucket_location is not None:
+            return bucket_location
+        if bucket_name != '':
+            region = self._val_element(tr, self.b_space, bucket_name, 'region')
+            if region is not None:
+                return region.decode('utf-8')
+        return self.default_location
+
+    @fdb.transactional
+    def _update_ct_stats_policy(self, tr, cname, region, objs_per_policy):
+        """
+        Read current values for given container and per region/policy
+        Compute deltas, update values then return deltas
+        """
+        current_values = dict()
+        deltas = dict()
+        c_space = self.metrics_space.pack((cname,))
+        for policy, value in objs_per_policy:
+            policy_value = self._val_element(tr, c_space, region, policy)
+            if policy_value is not None:
+                current_values[policy] = policy_value
+            else:
+                current_values[policy] = 0
+            delta = value - current_values[policy]
+            if delta != 0:
+                deltas[policy] = delta
+            # update values if value > 0 else clear key
+            if value == 0:
+                tr.clear(c_space.pack((region, policy)))
+            else:
+                tr[c_space.pack((region, policy))] = value
+        return deltas
 
     @fdb.transactional
     def _raw_listing(self, tr, ct_space, limit, prefix, marker, end_marker,
