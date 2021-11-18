@@ -45,6 +45,7 @@ namespace = OPENIO
 bind_addr = 172.30.1.244
 bind_port = 6400
 workers = 1
+worker_class = gevent
 
 [xcute-orchestrator]
 orchestrator_id = 7d1c892f-99c7-5366-86d1-fd3753578e78

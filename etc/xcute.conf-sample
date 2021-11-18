@@ -33,6 +33,7 @@ redis_host = 127.0.0.1:6379
 bind_addr = 127.0.0.1
 bind_port = 6400
 workers = 2
+worker_class = gevent
 
 [xcute-orchestrator]
 orchestrator_id = orchestrator-1
