@@ -98,7 +98,7 @@ class AccountBackendFdb():
 
         try:
             if self.db is None:
-                self.db = fdb.open(self.fdb_file)
+                self.db = fdb.open(self.fdb_file, event_model='gevent')
         except Exception as exc:
             self.logger.error("can't open fdb file: %s exception %s",
                               self.fdb_file, exc)
