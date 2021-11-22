@@ -216,6 +216,8 @@ M2_PROP_STORAGE_POLICY = 'sys.m2.policy.storage'
 M2_PROP_USAGE = 'sys.m2.usage'
 # Number of object versions to keep. -1 for unlimited.
 M2_PROP_VERSIONING_POLICY = 'sys.m2.policy.version'
+# Region where bucket is stored.
+M2_PROP_LOCATION = 'sys.m2.location'
 
 # HTTP Content-Type
 HTTP_CONTENT_TYPE_BINARY = 'application/octet-stream'
