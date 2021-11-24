@@ -633,6 +633,23 @@ db_properties_to_json(
 	return json;
 }
 
+GPtrArray *
+db_properties_system_to_gpa(struct db_properties_s *db_properties, GPtrArray *gpa)
+{
+	if (!db_properties || !gpa) {
+		return NULL;
+	}
+
+	gboolean _property_to_json(gpointer key, gpointer value, gpointer data UNUSED) {
+		g_ptr_array_add(gpa, g_strdup((gchar *) key));
+		g_ptr_array_add(gpa, g_strdup((gchar *) value));
+		return FALSE;
+	}
+	g_tree_foreach(db_properties->system, _property_to_json, NULL);
+
+	return gpa;
+}
+
 gboolean
 db_properties_has_system_property(struct db_properties_s *db_properties,
 		gchar **properties)
