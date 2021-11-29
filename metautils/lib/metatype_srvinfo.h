@@ -77,7 +77,7 @@ void service_info_encode_json(GString *out, const struct service_info_s *si,
 		gboolean full);
 
 void service_info_encode_prometheus(GString *gstr,
-		const struct service_info_s *si);
+		const struct service_info_s *si, gboolean full);
 
 void oio_parse_chunk_url(const gchar *url,
 		gchar **type, gchar **netloc, gchar **id);

@@ -262,14 +262,14 @@ _cs_check_tokens (struct req_args_s *args)
 }
 
 static GString*
-_cs_json_pack_and_free_srvinfo_list(GSList * svc)
+_cs_json_pack_and_free_srvinfo_list(GSList * svc, gboolean full)
 {
 	GString *gstr = g_string_sized_new(2048);
 	g_string_append_c (gstr, '[');
 	for (GSList * l = svc; l; l = l->next) {
 		if (l != svc)
 			g_string_append_c(gstr, ',');
-		service_info_encode_json(gstr, l->data, FALSE);
+		service_info_encode_json(gstr, l->data, full);
 	}
 	g_string_append_c(gstr, ']');
 	g_slist_free_full(svc, (GDestroyNotify) service_info_clean);
@@ -277,11 +277,11 @@ _cs_json_pack_and_free_srvinfo_list(GSList * svc)
 }
 
 static GString*
-_cs_prometheus_pack_and_free_srvinfo_list(GSList * svc)
+_cs_prometheus_pack_and_free_srvinfo_list(GSList * svc, gboolean full)
 {
 	GString *gstr = g_string_sized_new(4096);
 	for (GSList * l = svc; l; l = l->next) {
-		service_info_encode_prometheus(gstr, l->data);
+		service_info_encode_prometheus(gstr, l->data, full);
 	}
 	g_slist_free_full(svc, (GDestroyNotify) service_info_clean);
 	return gstr;
@@ -618,13 +618,14 @@ action_conscience_list (struct req_args_s *args)
 		return _reply_retry(args, NEWERROR(CODE_UNAVAILABLE, "FAKE"));
 #endif
 
+	gboolean all = strcmp(type, "all") == 0;
 	gboolean full = _request_get_flag(args, "full") || !json_format;
 
 	GError *err;
-	if (NULL != (err = _cs_check_tokens(args)))
+	if (!all && (err = _cs_check_tokens(args)) != NULL)
 		return _reply_common_error(args, err);
 
-	if (!CS() && flag_cache_enabled) {
+	if (!CS() && !all && flag_cache_enabled) {
 		service_remember_wanted (type);
 		if (!full) {
 			GBytes *prepared = service_is_wanted (type);
@@ -663,11 +664,11 @@ action_conscience_list (struct req_args_s *args)
 
 	if (json_format) {
 		return _reply_success_json(args,
-				_cs_json_pack_and_free_srvinfo_list(sl));
+				_cs_json_pack_and_free_srvinfo_list(sl, all));
 	} else if (strcmp(format, "prometheus") == 0) {
 		return _reply_success_bytes(args, HTTP_CONTENT_TYPE_TEXT,
 				g_string_free_to_bytes(
-						_cs_prometheus_pack_and_free_srvinfo_list(sl)));
+						_cs_prometheus_pack_and_free_srvinfo_list(sl, all)));
 	}
 	return _reply_format_error(args, BADREQ("Unknown format"));
 }

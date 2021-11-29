@@ -521,11 +521,16 @@ _service_tag_value_encode_str(GString *gstr, struct service_tag_s *tag)
 }
 
 static gchar*
-_service_info_encode_prometheus_labels(const struct service_info_s *si)
+_service_info_encode_prometheus_labels(const struct service_info_s *si,
+		gboolean full)
 {
 	GString *labels = g_string_sized_new(128);
 	gchar straddr[STRLEN_ADDRINFO];
 	grid_addrinfo_to_string(&(si->addr), straddr, sizeof(straddr));
+	if (full) {
+		g_string_append_printf(labels, "namespace=\"%s\",service_type=\"%s\",",
+				si->ns_name, si->type);
+	}
 	g_string_append_printf(labels, "addr=\"%s\"", straddr);
 
 	if (!si->tags || !si->tags->len) {
@@ -554,12 +559,13 @@ end:
 }
 
 void
-service_info_encode_prometheus(GString *gstr, const struct service_info_s *si)
+service_info_encode_prometheus(GString *gstr, const struct service_info_s *si,
+		gboolean full)
 {
 	if (!si)
 		return;
 
-	gchar *labels = _service_info_encode_prometheus_labels(si);
+	gchar *labels = _service_info_encode_prometheus_labels(si, full);
 	g_string_append_printf(gstr, "conscience_score{%s} %"G_GINT32_FORMAT"\n",
 			labels, si->score.value);
 
