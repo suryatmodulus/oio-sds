@@ -507,9 +507,9 @@ _service_tag_value_encode_str(GString *gstr, struct service_tag_s *tag)
 			break;
 		case STVT_BOOL:
 			if (tag->value.b)
-				g_string_append_static(gstr, "true");
+				g_string_append_static(gstr, "1");
 			else
-				g_string_append_static(gstr, "false");
+				g_string_append_static(gstr, "0");
 			break;
 		case STVT_STR:
 			g_string_append(gstr, tag->value.s);
@@ -577,6 +577,11 @@ service_info_encode_prometheus(GString *gstr, const struct service_info_s *si,
 	for (i=0, max=si->tags->len; i < max; i++) {
 		tag = si->tags->pdata[i];
 		if (!g_str_has_prefix(tag->name, "stat.")) {
+			continue;
+		}
+		if (tag->type != STVT_I64 &&
+		    tag->type != STVT_REAL &&
+		    tag->type != STVT_BOOL) {
 			continue;
 		}
 		g_string_append_printf(gstr, "conscience_stat{%s,type=\"%s\"} ",
