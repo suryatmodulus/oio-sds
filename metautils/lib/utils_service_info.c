@@ -549,6 +549,8 @@ _service_info_encode_prometheus_labels(const struct service_info_s *si,
 			tag_name = "volume";
 		} else if (strcmp(tag_name, "loc") == 0) {
 			tag_name = "location";
+		} else if (strcmp(tag_name, "service_id") == 0) {
+			tag_name = "id";
 		}
 		g_string_append_printf(labels, ",%s=\"", tag_name);
 		_service_tag_value_encode_str(labels, tag);
