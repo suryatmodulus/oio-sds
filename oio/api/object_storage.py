@@ -1379,6 +1379,17 @@ class ObjectStorageApi(object):
     def _object_create(self, account, container, obj_name, source,
                        sysmeta, properties=None, properties_callback=None,
                        policy=None, key_file=None, **kwargs):
+        if kwargs.get('restore_drained'):
+            obj_meta = self.object_get_properties(account, container, obj_name,
+                                                  **kwargs)
+            kwargs['version'] = obj_meta['version']
+            # Check that object is drained. Otherwise chunks could be deleted
+            # during upload to come because of the same version.
+            resp = self.object_show(account, container, obj_name)
+            if resp['chunk_method'] != 'drained':
+                raise exc.Forbidden(message='Restoring is only allowed on '
+                                    'drained objects.')
+
         obj_meta, ul_handler, chunk_prep = self._object_prepare(
             account, container, obj_name, source, sysmeta,
             policy=policy, key_file=key_file,
