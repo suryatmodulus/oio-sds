@@ -114,6 +114,9 @@ class ObjectStorageApi(object):
         self.logger.debug("Global API parameters: %s", self._global_kwargs)
 
         from oio.account.client import AccountClient
+        from oio.account.iam_client import IamClient
+        from oio.account.bucket_client import BucketClient
+
         from oio.container.client import ContainerClient
         from oio.directory.client import DirectoryClient
         # TODO(FVE): we may want to share the PoolManager instance
@@ -124,6 +127,9 @@ class ObjectStorageApi(object):
         acct_kwargs = kwargs.copy()
         acct_kwargs["proxy_endpoint"] = acct_kwargs.pop("endpoint", None)
         self.account = AccountClient(conf, logger=self.logger, **acct_kwargs)
+        self.iam = IamClient(conf, logger=self.logger, **acct_kwargs)
+        self.bucket = BucketClient(conf, logger=self.logger, **acct_kwargs)
+
         self._blob_client = None
         self._proxy_client = None
 
