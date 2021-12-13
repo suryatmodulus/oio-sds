@@ -1,4 +1,3 @@
-# Copyright (C) 2015-2020 OpenIO SAS, as part of OpenIO SDS
 # Copyright (C) 2021 OVH SAS
 #
 # This library is free software; you can redistribute it and/or
@@ -27,13 +26,13 @@ from oio.common.logger import get_logger
 from oio.conscience.client import ConscienceClient
 
 
-class AccountClient(HttpApi):
-    """Simple client API for the account service."""
+class BucketClient(HttpApi):
+    """Simple client API for the bucket service."""
 
     def __init__(self, conf, endpoint=None, proxy_endpoint=None,
                  refresh_delay=3600.0, logger=None, **kwargs):
         """
-        Initialize a client for the account service.
+        Initialize a client for the bucket service.
 
         :param conf: dictionary with at least the namespace name
         :type conf: `dict`
@@ -43,7 +42,7 @@ class AccountClient(HttpApi):
         account service endpoint (if not provided at instantiation)
         :type refresh_interval: `float` seconds
         """
-        super(AccountClient, self).__init__(
+        super(BucketClient, self).__init__(
             endpoint=endpoint, service_type='account-service', **kwargs)
         self.logger = logger or get_logger(conf)
         self.cs = ConscienceClient(conf, endpoint=proxy_endpoint,
@@ -65,7 +64,7 @@ class AccountClient(HttpApi):
     def _refresh_endpoint(self, now=None, **kwargs):
         """Refresh account service endpoint."""
         addr = self._get_account_addr(**kwargs)
-        self.endpoint = '/'. join(("http:/", addr, "v1.0/account"))
+        self.endpoint = '/'. join(("http:/", addr, "v1.0/bucket"))
         if not now:
             now = time.time()
         self._last_refresh = now
@@ -116,59 +115,6 @@ class AccountClient(HttpApi):
             reraise(exc_info[0], exc_info[1], exc_info[2])
         return resp, body
 
-    def account_create(self, account, **kwargs):
-        """
-        Create an account.
-
-        :param account: name of the account to create
-        :type account: `str`
-        :returns: `True` if the account has been created
-        """
-        resp, _body = self.account_request(account, 'PUT', 'create', **kwargs)
-        return resp.status == 201
-
-    def account_delete(self, account, **kwargs):
-        """
-        Delete an account.
-
-        :param account: name of the account to delete
-        :type account: `str`
-        """
-        self.account_request(account, 'POST', 'delete', **kwargs)
-
-    def account_list(self, **kwargs):
-        """
-        List accounts.
-        """
-        _resp, body = self.account_request(None, 'GET', 'list', **kwargs)
-        return body
-
-    def account_show(self, account, **kwargs):
-        """
-        Get information about an account.
-        """
-        _resp, body = self.account_request(account, 'GET', 'show', **kwargs)
-        return body
-
-    def account_update(self, account, metadata, to_delete, **kwargs):
-        """
-        Update metadata of the specified account.
-
-        :param metadata: dictionary of properties that must be set or updated.
-        :type metadata: `dict`
-        :param to_delete: list of property keys that must be removed.
-        :type to_delete: `list`
-        """
-        data = json.dumps({"metadata": metadata, "to_delete": to_delete})
-        self.account_request(account, 'PUT', 'update', data=data, **kwargs)
-
-    def account_metrics(self, **kwargs):
-        """
-        Metrics of an account.
-        """
-        _resp, body = self.account_request(None, 'GET', 'metrics', **kwargs)
-        return body
-
     def bucket_list(self, account, limit=None, marker=None,
                     prefix=None, **kwargs):
         """
@@ -196,97 +142,63 @@ class AccountClient(HttpApi):
                                            params=params, **kwargs)
         return body
 
-    def container_list(self, account, limit=None, marker=None,
-                       end_marker=None, prefix=None, delimiter=None,
-                       s3_buckets_only=False, **kwargs):
+    def bucket_show(self, bucket, **kwargs):
         """
-        Get the list of containers of an account.
-
-        :param account: account from which to get the container list
-        :type account: `str`
-        :keyword limit: maximum number of results to return
-        :type limit: `int`
-        :keyword marker: name of the container from where to start the listing
-        :type marker: `str`
-        :keyword end_marker:
-        :keyword prefix:
-        :keyword delimiter:
-        :keyword s3_buckets_only: list only S3 buckets.
-        :type s3_buckets_only: `bool`
-        :rtype: `dict` with 'ctime' (`float`), 'bytes' (`int`),
-            'objects' (`int`), 'containers' (`int`), 'id' (`str`),
-            'metadata' (`dict`) and 'listing' (`list`).
-            'listing' contains lists of container metadata (name,
-            number of objects, number of bytes, whether it is a prefix,
-            and modification time).
+        Get information about a bucket.
         """
-        params = {"id": account,
-                  "limit": limit,
-                  "marker": marker,
-                  "end_marker": end_marker,
-                  "prefix": prefix,
-                  "delimiter": delimiter,
-                  "s3_buckets_only": s3_buckets_only}
-        _resp, body = self.account_request(account, 'GET', 'containers',
-                                           params=params, **kwargs)
-        return body
-
-    def container_show(self, account, container, **kwargs):
-        """
-        Get information about a container.
-        """
-        _resp, body = self.account_request(account, 'GET', 'show-container',
-                                           params={'container': container},
+        _resp, body = self.account_request(bucket, 'GET', 'show-bucket',
                                            **kwargs)
         return body
 
-    def container_update(self, account, container, metadata=None, **kwargs):
+    def bucket_update(self, bucket, metadata, to_delete, **kwargs):
         """
-        Update account with container-related metadata.
+        Update metadata of the specified bucket.
 
-        :param account: name of the account to update
-        :type account: `str`
-        :param container: name of the container whose metadata has changed
-        :type container: `str`
-        :param metadata: container metadata ("bytes", "objects",
-        "mtime", "dtime")
+        :param metadata: dictionary of properties that must be set or updated.
         :type metadata: `dict`
+        :param to_delete: list of property keys that must be removed.
+        :type to_delete: `list`
         """
-        metadata['name'] = container
-        _resp, body = self.account_request(account, 'PUT', 'container/update',
-                                           data=json.dumps(metadata), **kwargs)
+        data = json.dumps({"metadata": metadata, "to_delete": to_delete})
+        _resp, body = self.account_request(bucket, 'PUT', 'update-bucket',
+                                           data=data, **kwargs)
         return body
 
-    def container_reset(self, account, container, mtime, **kwargs):
+    def bucket_refresh(self, bucket, **kwargs):
         """
-        Reset container of an account
+        Refresh the counters of a bucket. Recompute them from the counters
+        of all shards (containers).
+        """
+        self.account_request(bucket, 'POST', 'refresh-bucket', **kwargs)
 
-        :param account: name of the account
-        :type account: `str`
-        :param container: name of the container to reset
-        :type container: `str`
-        :param mtime: time of the modification
+    def bucket_reserve(self, bucket, **kwargs):
         """
-        metadata = dict()
-        metadata["name"] = container
-        metadata["mtime"] = mtime
-        self.account_request(account, 'PUT', 'container/reset',
-                             data=json.dumps(metadata), **kwargs)
+        Reserve the bucket name during bucket creation.
+        """
+        data = json.dumps({'account': kwargs.get('owner')})
+        _resp, body = self.account_request(bucket, 'PUT', 'reserve-bucket',
+                                           data=data, **kwargs)
+        return body
 
-    def account_refresh(self, account, **kwargs):
+    def bucket_release(self, bucket, **kwargs):
         """
-        Refresh counters of an account
+        Release the bucket reservration after success.
+        """
+        self.account_request(bucket, 'POST', 'release-bucket', **kwargs)
 
-        :param account: name of the account to refresh
-        :type account: `str`
+    def set_bucket_owner(self, bucket, **kwargs):
         """
-        self.account_request(account, 'POST', 'refresh', **kwargs)
+        Set the bucket owner during reservation.
+        """
+        data = json.dumps({'account': kwargs.get('owner')})
+        _resp, body = self.account_request(bucket, 'PUT', 'set-bucket-owner',
+                                           data=data, **kwargs)
+        return body
 
-    def account_flush(self, account, **kwargs):
+    def get_bucket_owner(self, bucket, **kwargs):
         """
-        Flush all containers of an account
-
-        :param account: name of the account to flush
-        :type account: `str`
+        Get the bucket owner.
         """
-        self.account_request(account, 'POST', 'flush', **kwargs)
+        _resp, body = self.account_request(bucket, 'GET', 'get-bucket-owner',
+                                           **kwargs)
+        return body
