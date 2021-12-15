@@ -163,6 +163,9 @@ func main() {
 	if opts["log_format"] != "" {
 		logFormat = opts["log_format"]
 	}
+	if opts["log_request_format"] != "" {
+		logFormat = opts["log_request_format"]
+	}
 	if opts["log_access_format"] != "" {
 		logAccessFormat = opts["log_access_format"]
 	}

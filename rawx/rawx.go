@@ -85,13 +85,13 @@ func (rr *rawxRequest) replyError(action string, err error) {
 	} else if os.IsNotExist(err) {
 		rr.replyCode(http.StatusNotFound)
 	} else {
-		// A strong error occured, we tend to close the connection
+		// A strong error occurred, we tend to close the connection
 		// whatever the client has sent in the request, in terms of
 		// connection management.
 		rr.req.Close = true
 
 		if len(action) != 0 {
-			LogError(msgErrorAction(action, rr.reqid, err))
+			LogRequestError(rr, msgErrorAction(action, err))
 		}
 
 		// Also, we debug what happened in the reply headers
