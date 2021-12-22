@@ -66,7 +66,7 @@ def catch_service_errors(func):
 
 class Metric(object):
     METRIC_ACCOUNTS = "obsto_accounts"
-    METRIC_CONTAINTERS = "obsto_containers"
+    METRIC_CONTAINERS = "obsto_containers"
     METRIC_BUCKETS = "obsto_buckets"
     METRIC_OBJECTS = "obsto_objects"
     METRIC_BYTES = "obsto_bytes"
@@ -98,7 +98,7 @@ class AccountBackendFdb():
     # by batch is too long
     BATCH_SIZE = 10000
 
-    def init_db(self):
+    def init_db(self, event_model='gevent'):
         """
         This method makes connexion to fdb database. It could be called
         any time in mono process, but in case we fork processes it should be
@@ -111,7 +111,7 @@ class AccountBackendFdb():
 
         try:
             if self.db is None:
-                self.db = fdb.open(self.fdb_file, event_model='gevent')
+                self.db = fdb.open(self.fdb_file, event_model=event_model)
         except Exception as exc:
             self.logger.error("can't open fdb file: %s exception %s",
                               self.fdb_file, exc)
@@ -616,7 +616,7 @@ class AccountBackendFdb():
         for key, value in metrics.items():
             if key == Metric.METRIC_ACCOUNTS:
                 prom_output = prom_output + key + " " + str(value) + "\n"
-            if key in (Metric.METRIC_BUCKETS, Metric.METRIC_CONTAINTERS):
+            if key in (Metric.METRIC_BUCKETS, Metric.METRIC_CONTAINERS):
                 if value and isinstance(value, dict):
                     for reg, val in value.items():
                         prom_output = prom_output + key + "{" + \
@@ -642,7 +642,7 @@ class AccountBackendFdb():
         metrics = dict()
         metrics[Metric.METRIC_ACCOUNTS] = self._read_account_metrics(tr)
         metrics[Metric.METRIC_BUCKETS] = self._read_buckets_metrics(tr)
-        metrics[Metric.METRIC_CONTAINTERS] = self._read_containers_metrics(tr)
+        metrics[Metric.METRIC_CONTAINERS] = self._read_containers_metrics(tr)
         metrics[Metric.METRIC_OBJECTS] = self._read_field_metrics(
                                                 tr,
                                                 'nb-objects')
