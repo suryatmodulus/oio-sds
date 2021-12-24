@@ -6,13 +6,12 @@ volume_list = /var/lib/oio/sds/vol1/NS/rawx-1/,/var/lib/oio/sds/vol1/NS/rawx-2/
 
 # Wait random time before starting
 # to avoid all the crawlers from working at the same time.
-wait_random_time_before_starting = True
-# In seconds, the interval between two full scans. Defaults to half an hour.
+wait_random_time_before_starting = False
+# In seconds, the interval between two full scans.
 interval = 1800
-# In seconds, the interval between two logs entries (for each volume)
-# Defaults to 300 seconds.
+# In seconds, the interval between two logs entries (for each volume).
 report_interval = 300
-# Maximum chunks to be scanned per second. Defaults to 30.
+# Maximum chunks to be scanned per second.
 scanned_per_second = 30
 
 # Common log stuff

@@ -102,6 +102,10 @@ class CommandError(Exception):
     pass
 
 
+class InvalidPath(Exception):
+    pass
+
+
 class ExplicitBury(OioException):
     pass
 

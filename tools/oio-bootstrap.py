@@ -330,20 +330,22 @@ namespace = ${NS}
 user = ${USER}
 volume_list = ${RAWX_VOLUMES}
 
+wait_random_time_before_starting = True
+interval = 1200
+report_interval = 300
+scanned_per_second = 10
+
+log_level = INFO
+log_facility = LOG_LOCAL0
+log_address = /dev/log
+syslog_prefix = OIO,${NS},${SRVTYPE}
+
 # How many hexdigits must be used to name the indirection directories
 hash_width = ${HASH_WIDTH}
 # How many levels of directories are used to store chunks
 hash_depth = ${HASH_DEPTH}
 
-wait_random_time_before_starting = True
-interval = 1200
-report_interval = 300
-chunks_per_second = 10
 conscience_cache = 30
-log_level = INFO
-log_facility = LOG_LOCAL0
-log_address = /dev/log
-syslog_prefix = OIO,${NS},${SRVTYPE}
 """
 
 template_rawx_crawler_service = """
@@ -356,6 +358,7 @@ wait_random_time_before_starting = True
 interval = 1200
 report_interval = 300
 scanned_per_second = 10
+
 log_level = INFO
 log_facility = LOG_LOCAL0
 log_address = /dev/log
@@ -958,7 +961,7 @@ template_systemd_service_meta2_indexer = """
 Description=[OpenIO] Service meta2 indexer
 After=network.target
 PartOf=${PARENT}
-OioGroup=${NS},localhost,${SRVTYPE}
+OioGroup=${NS},localhost,${GROUPTYPE},${SRVTYPE}
 
 [Service]
 ${SERVICEUSER}
@@ -977,7 +980,7 @@ template_systemd_service_meta2_crawler = """
 Description=[OpenIO] Service meta2 crawler
 After=network.target
 PartOf=${PARENT}
-OioGroup=${NS},localhost,${SRVTYPE}
+OioGroup=${NS},localhost,${GROUPTYPE},${SRVTYPE}
 
 [Service]
 ${SERVICEUSER}
@@ -995,7 +998,7 @@ template_systemd_service_rdir_crawler = """
 [Unit]
 Description=[OpenIO] Service rdir crawler
 PartOf=${PARENT}
-OioGroup=${NS},localhost,${SRVTYPE}
+OioGroup=${NS},localhost,${GROUPTYPE},${SRVTYPE}
 
 [Service]
 ${SERVICEUSER}
@@ -1013,7 +1016,7 @@ template_systemd_service_rawx_crawler = """
 [Unit]
 Description=[OpenIO] Service rawx crawler
 PartOf=${PARENT}
-OioGroup=${NS},localhost,${SRVTYPE}
+OioGroup=${NS},localhost,${GROUPTYPE},${SRVTYPE}
 
 [Service]
 ${SERVICEUSER}

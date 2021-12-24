@@ -15,40 +15,43 @@
 
 
 from oio.common.constants import STRLEN_REFERENCEID
-from oio.crawler.common.crawler import Crawler, CrawlerWorker
+from oio.common.exceptions import InvalidPath
+from oio.crawler.common.crawler import VolumeCrawler, VolumeCrawlerWorker
 from oio.crawler.meta2.meta2db import Meta2DB
 
 
-class Meta2Worker(CrawlerWorker):
+class Meta2Worker(VolumeCrawlerWorker):
     """
-    Meta2 Worker responsible for a single volume.
+    Worker responsible for listing and processing meta2 database files
+    for a single meta2 volume.
     """
 
     SERVICE_TYPE = 'meta2'
-
-    def __init__(self, conf, volume_path, logger=None, api=None):
-        super(Meta2Worker, self).__init__(conf, volume_path)
 
     def cb(self, status, msg):
         if 500 <= status <= 599:
             self.logger.warning('Meta2worker volume %s handling failure %s',
                                 self.volume, msg)
 
-    def process_path(self, path):
+    def _process_path(self, path):
+        """
+        Perform the processing of a meta2 database file.
+
+        :param path: The meta2 database file path.
+        :returns: `True` if the meta2 database file has been processed.
+        """
         db_id = path.rsplit("/")[-1].rsplit(".")
         if len(db_id) != 3:
             self.logger.warning("Malformed db file name: %s", path)
-            self.invalid_paths += 1
-            return False
+            raise InvalidPath
         if db_id[2] != 'meta2':
             self.logger.warning("Bad extension filename: %s", path)
-            self.invalid_paths += 1
-            return False
+            raise InvalidPath
 
         cid_seq = ".".join([db_id[0], db_id[1]])
         if len(cid_seq) < STRLEN_REFERENCEID:
             self.logger.warning('Not a valid CID: %s', cid_seq)
-            return False
+            raise InvalidPath
 
         meta2db = Meta2DB(self.app_env, dict())
         meta2db.path = path
@@ -58,7 +61,7 @@ class Meta2Worker(CrawlerWorker):
             meta2db.seq = int(db_id[1])
         except ValueError:
             self.logger.warning('Bad sequence number: %s', db_id[1])
-            return False
+            raise InvalidPath
 
         try:
             self.pipeline(meta2db.env, self.cb)
@@ -70,14 +73,20 @@ class Meta2Worker(CrawlerWorker):
         return True
 
 
-class Meta2Crawler(Crawler):
+class Meta2Crawler(VolumeCrawler):
+    """
+    Daemon responsible for multiple workers who will list
+    and process meta2 database files for each meta2 volume.
+    """
 
     SERVICE_TYPE = 'meta2'
 
-    def __init__(self, conf, conf_file=None, **kwargs):
-        super(Meta2Crawler, self).__init__(conf, conf_file=conf_file)
+    def _init_workers(self):
+        """
+        Create the different worker instances.
 
-    def _init_volume_workers(self):
-        self.volume_workers = [
+        :returns: The list of these workers.
+        """
+        return [
             Meta2Worker(self.conf, volume, logger=self.logger, api=self.api)
             for volume in self.volumes]

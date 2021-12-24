@@ -29,8 +29,11 @@ from oio.common.logger import redirect_stdio, get_logger
 
 
 class Daemon(object):
-    def __init__(self, conf):
+
+    def __init__(self, conf, conf_file=None):
         self.conf = conf
+        if conf_file:
+            self.conf['conf_file'] = conf_file
         self.logger = get_logger(conf)
 
     def run(self, *args, **kwargs):

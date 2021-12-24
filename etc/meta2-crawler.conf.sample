@@ -7,19 +7,18 @@ volume_list = /var/lib/oio/sds/vol1/NS/meta2-1/,/var/lib/oio/sds/vol1/NS/meta2-2
 # Wait random time before starting
 # to avoid all the crawlers from working at the same time.
 wait_random_time_before_starting = False
-# In seconds, the interval between two full scans. Defaults to half an hour.
+# In seconds, the interval between two full scans.
 interval = 1800
-# In seconds, the interval between two logs entries (for each volume)
-# Defaults to 300 seconds.
+# In seconds, the interval between two logs entries (for each volume).
 report_interval = 300
-# Maximum containers to be scanned per second. Defaults to 10.
-scanned_per_second = 10
+# Maximum containers to be scanned per second.
+scanned_per_second = 30
 
 # Common log stuff
 log_level = INFO
 log_facility = LOG_LOCAL0
 log_address = /dev/log
-syslog_prefix = OIO,OPENIO,meta2-crawler,1
+syslog_prefix = OIO,OPENIO,meta2-crawler
 
 [pipeline:main]
 pipeline = logger auto_vacuum auto_sharding

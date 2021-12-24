@@ -14,21 +14,19 @@
 # License along with this library.
 
 from oio.blob.utils import read_chunk_metadata
-from oio.common import exceptions as exc
+from oio.common.exceptions import FaultyChunk, InvalidPath, MissingAttribute
 from oio.common.utils import is_chunk_id_valid
-from oio.crawler.common.crawler import Crawler, CrawlerWorker
+from oio.crawler.common.crawler import VolumeCrawler, VolumeCrawlerWorker
 from oio.crawler.rawx.chunk_wrapper import ChunkWrapper, is_success, is_error
 
 
-class RawxWorker(CrawlerWorker):
+class RawxWorker(VolumeCrawlerWorker):
     """
-    Rawx Worker responsible for a single volume.
+    Worker responsible for listing and processing chunk files
+    for a single rawx volume.
     """
 
     SERVICE_TYPE = 'rawx'
-
-    def __init__(self, conf, volume_path, logger=None, api=None):
-        super(RawxWorker, self).__init__(conf, volume_path)
 
     def cb(self, status, msg):
         if is_success(status):
@@ -40,8 +38,13 @@ class RawxWorker(CrawlerWorker):
             self.logger.warning('Rawx volume_id=%s status=%d msg=%s',
                                 self.volume_id, status, msg)
 
-    def process_path(self, path):
+    def _process_path(self, path):
+        """
+        Perform the processing of a chunk file.
 
+        :param path: The chunk file path.
+        :returns: `True` if the chunk file has been processed.
+        """
         chunk = ChunkWrapper({})
         chunk.chunk_id = path.rsplit('/', 1)[-1]
         chunk.chunk_path = path
@@ -50,15 +53,14 @@ class RawxWorker(CrawlerWorker):
             if not is_chunk_id_valid(chunk.chunk_id):
                 self.logger.info('Skip not valid chunk path %s',
                                  chunk.chunk_path)
-                self.invalid_paths += 1
-                return False
+                raise InvalidPath
             with open(chunk.chunk_path, 'rb') as chunk_file:
                 # A supposition is made: metadata will not change during the
                 # process of all filters
                 chunk.meta, _ = read_chunk_metadata(chunk_file, chunk.chunk_id)
-        except (exc.MissingAttribute, exc.FaultyChunk):
-            self.errors += 1
+        except (MissingAttribute, FaultyChunk):
             self.logger.error('Skip not valid chunk %s', chunk.chunk_path)
+            self.errors += 1
             return False
 
         try:
@@ -68,18 +70,23 @@ class RawxWorker(CrawlerWorker):
             self.errors += 1
             self.logger.exception('Failed to apply pipeline')
         self.scanned_since_last_report += 1
-
         return True
 
 
-class RawxCrawler(Crawler):
+class RawxCrawler(VolumeCrawler):
+    """
+    Daemon responsible for multiple workers who will list
+    and process chunk files for each rawx volume.
+    """
 
     SERVICE_TYPE = 'rawx'
 
-    def __init__(self, conf, conf_file=None, **kwargs):
-        super(RawxCrawler, self).__init__(conf, conf_file=conf_file)
+    def _init_workers(self):
+        """
+        Create the different worker instances.
 
-    def _init_volume_workers(self):
-        self.volume_workers = [
+        :returns: The list of these workers.
+        """
+        return [
             RawxWorker(self.conf, volume, logger=self.logger, api=self.api)
             for volume in self.volumes]
