@@ -130,8 +130,8 @@ fi
 
 with_log systemctl --user stop foundationdb.service
 
-echo "FoundationDB ${FDB_VERSION} succesfully installed in directory: ${INSTALL_DIR}"
+echo "FoundationDB ${FDB_VERSION} successfully installed in directory: ${INSTALL_DIR}"
 echo "Next step is to add install dir in your environment. Add this in your .bashrc"
 echo -e "\t- export PATH=${INSTALL_DIR}/usr/bin:${INSTALL_DIR}/usr/sbin:${INSTALL_DIR}/usr/lib/foundationdb:${INSTALL_DIR}/usr/lib/foundationdb/backup_agent:\$PATH"
-echo -e "\t- export LD_LIBRARY_PATH=${INSTALL_DIR}/lib:\$LD_LIBRARY_PATH"
+echo -e "\t- export LD_LIBRARY_PATH=${INSTALL_DIR}/usr/lib:\$LD_LIBRARY_PATH"
 echo -e "\t- export FDB_CLUSTER_FILE=${INSTALL_DIR}/etc/foundationdb/fdb.cluster"
