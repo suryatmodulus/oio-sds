@@ -226,7 +226,10 @@ _forward_XXX(struct req_args_s *args, const char *reqname, const char **opts,
 		return _reply_common_error (args, err);
 	}
 
-	return _reply_success_bytes(args, HTTP_CONTENT_TYPE_JSON,
+	const char *format = OPT("format");
+	const char *mime = g_strcmp0(format, "prometheus")?
+			HTTP_CONTENT_TYPE_JSON : HTTP_CONTENT_TYPE_TEXT;
+	return _reply_success_bytes(args, mime,
 			g_bytes_new_take((guint8*)packed, strlen(packed)));
 }
 
@@ -251,7 +254,12 @@ action_forward_get_ping (struct req_args_s *args)
 enum http_rc_e
 action_forward_get_info (struct req_args_s *args)
 {
-	return _forward_XXX(args, NAME_MSGNAME_SQLX_INFO, NULL, proxy_timeout_info);
+	const gchar *opt_keys[] = {
+		"format", NAME_MSGKEY_FORMAT,
+		NULL
+	};
+	return _forward_XXX(args, NAME_MSGNAME_SQLX_INFO, opt_keys,
+			proxy_timeout_info);
 }
 
 enum http_rc_e
